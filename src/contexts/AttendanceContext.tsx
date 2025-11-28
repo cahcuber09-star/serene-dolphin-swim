@@ -18,6 +18,7 @@ export interface FinalAttendanceRecord {
 interface AttendanceContextType {
   history: FinalAttendanceRecord[];
   addRecord: (mode: 'Automatic' | 'Manual', entries: FinalAttendanceEntry[]) => void;
+  clearHistory: () => void; // Added clearHistory
 }
 
 const AttendanceContext = createContext<AttendanceContextType | undefined>(undefined);
@@ -30,14 +31,14 @@ export const useAttendance = () => {
   return context;
 };
 
-interface AttendanceProviderProps {
+interface AuthProviderProps {
   children: ReactNode;
 }
 
 // Helper to generate a unique ID
 const generateId = () => Math.random().toString(36).substring(2, 9);
 
-export const AttendanceProvider: React.FC<AttendanceProviderProps> = ({ children }) => {
+export const AttendanceProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Load history from localStorage or start empty
   const [history, setHistory] = useState<FinalAttendanceRecord[]>(() => {
     try {
@@ -66,9 +67,15 @@ export const AttendanceProvider: React.FC<AttendanceProviderProps> = ({ children
     
     showSuccess(`Attendance recorded successfully in ${mode} mode!`);
   };
+  
+  const clearHistory = () => {
+    setHistory([]);
+    localStorage.removeItem('attendanceHistory');
+    showSuccess('Attendance history cleared.');
+  };
 
   return (
-    <AttendanceContext.Provider value={{ history, addRecord }}>
+    <AttendanceContext.Provider value={{ history, addRecord, clearHistory }}>
       {children}
     </AttendanceContext.Provider>
   );

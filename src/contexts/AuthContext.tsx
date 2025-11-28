@@ -1,5 +1,6 @@
 import React, { createContext, useState, useContext, ReactNode } from 'react';
 import { showSuccess } from '@/utils/toast';
+import { useAttendance } from './AttendanceContext'; // Import useAttendance
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -22,6 +23,9 @@ interface AuthProviderProps {
 }
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+  // We can now use useAttendance because AttendanceProvider is a parent in App.tsx
+  const { clearHistory } = useAttendance(); 
+  
   // Use localStorage to persist authentication state across refreshes
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
     return localStorage.getItem('isAuthenticated') === 'true';
@@ -41,6 +45,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const logout = () => {
     setIsAuthenticated(false);
     localStorage.removeItem('isAuthenticated');
+    clearHistory(); // Clear attendance history on logout
   };
 
   return (

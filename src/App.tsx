@@ -18,8 +18,8 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <AuthProvider>
-        <AttendanceProvider> {/* Add AttendanceProvider here */}
+      <AttendanceProvider> {/* AttendanceProvider is now the parent */}
+        <AuthProvider>
           <BrowserRouter>
             <Routes>
               <Route path="/" element={<Index />} />
@@ -34,8 +34,8 @@ const App = () => (
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
-        </AttendanceProvider>
-      </AuthProvider>
+        </AuthProvider>
+      </AttendanceProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );
