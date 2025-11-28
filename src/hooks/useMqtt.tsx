@@ -61,5 +61,19 @@ export const useMqtt = (topic: string) => {
     };
   }, [topic]);
 
-  return { client, messages, isConnected };
+  const publish = (publishTopic: string, payload: string) => {
+    if (client && isConnected) {
+      client.publish(publishTopic, payload, (err) => {
+        if (err) {
+          console.error(`Failed to publish to ${publishTopic}:`, err);
+        } else {
+          console.log(`Published to ${publishTopic}: ${payload}`);
+        }
+      });
+    } else {
+      console.warn('Cannot publish: MQTT client is not connected.');
+    }
+  };
+
+  return { client, messages, isConnected, publish };
 };
