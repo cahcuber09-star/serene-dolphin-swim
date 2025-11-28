@@ -3,14 +3,14 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useAttendance, FinalAttendanceEntry } from '@/contexts/AttendanceContext';
 import { useMqtt } from '@/hooks/useMqtt';
 import { Button } from '@/components/ui/button';
-import { LogOut, Zap, Hand, Save, Loader2, ArrowLeft } from 'lucide-react';
+import { LogOut, Zap, Hand, Save, Loader2, ArrowLeft, History } from 'lucide-react';
 import { MadeWithDyad } from '@/components/made-with-dyad';
 import AutomaticAttendanceTable from '@/components/AutomaticAttendanceTable';
 import ManualAttendanceForm from '@/components/ManualAttendanceForm';
 import AttendanceHistoryTable from '@/components/AttendanceHistoryTable';
 import { showSuccess, showError } from '@/utils/toast';
 
-type AttendanceMode = 'automatic' | 'manual';
+type AttendanceMode = 'automatic' | 'manual' | 'history';
 
 const DashboardPage: React.FC = () => {
   const { logout } = useAuth();
@@ -44,11 +44,12 @@ const DashboardPage: React.FC = () => {
       publish("1/2", payload);
     }
     
+    // 1. Save data to history context
     addRecord(mode === 'automatic' ? 'Automatic' : 'Manual', currentRecords);
     
-    // Clear records and return to mode selection after recording
+    // 2. Clear current records and switch to history view
     setCurrentRecords([]);
-    setMode(null); 
+    setMode('history'); 
     setIsRecording(false);
   };
 
@@ -108,13 +109,30 @@ const DashboardPage: React.FC = () => {
         )}
       </div>
       
-      {/* Attendance History Section */}
+      {/* Attendance History Section is now included here, visible only when a mode is active */}
       <AttendanceHistoryTable />
       
       <div className="mt-8">
         <MadeWithDyad />
       </div>
     </>
+  );
+  
+  const renderHistoryView = () => (
+    <div className="pt-4">
+      <div className="mb-6 flex items-center justify-between">
+        <h2 className="text-2xl font-bold flex items-center">
+          <History className="h-6 w-6 mr-2" /> Attendance Record Finalized
+        </h2>
+        <Button onClick={() => setMode(null)}>
+          <ArrowLeft className="mr-2 h-4 w-4" /> Kembali ke Pilihan Mode
+        </Button>
+      </div>
+      <AttendanceHistoryTable />
+      <div className="mt-8">
+        <MadeWithDyad />
+      </div>
+    </div>
   );
 
   return (
@@ -128,7 +146,10 @@ const DashboardPage: React.FC = () => {
         </div>
       </header>
 
-      {mode === null ? renderModeSelection() : renderAttendanceContent()}
+      {mode === null && renderModeSelection()}
+      {mode === 'automatic' && renderAttendanceContent()}
+      {mode === 'manual' && renderAttendanceContent()}
+      {mode === 'history' && renderHistoryView()}
       
     </div>
   );
