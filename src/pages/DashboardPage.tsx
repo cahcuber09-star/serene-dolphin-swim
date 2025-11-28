@@ -109,8 +109,7 @@ const DashboardPage: React.FC = () => {
         )}
       </div>
       
-      {/* Attendance History Section is now included here, visible only when a mode is active */}
-      <AttendanceHistoryTable />
+      {/* Attendance History Section Dihilangkan dari sini */}
       
       <div className="mt-8">
         <MadeWithDyad />
