@@ -107,6 +107,13 @@ const DashboardPage: React.FC = () => {
           <ManualAttendanceForm onRecordsChange={handleRecordsChange} />
         )}
       </div>
+      
+      {/* Attendance History Section */}
+      <AttendanceHistoryTable />
+      
+      <div className="mt-8">
+        <MadeWithDyad />
+      </div>
     </>
   );
 
@@ -123,12 +130,6 @@ const DashboardPage: React.FC = () => {
 
       {mode === null ? renderModeSelection() : renderAttendanceContent()}
       
-      {/* Attendance History Section always visible */}
-      <AttendanceHistoryTable />
-      
-      <div className="mt-8">
-        <MadeWithDyad />
-      </div>
     </div>
   );
 };
