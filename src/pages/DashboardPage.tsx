@@ -5,17 +5,18 @@ import { useMqtt } from '@/hooks/useMqtt'; // Import useMqtt to access publish f
 import { Button } from '@/components/ui/button';
 import { LogOut, Zap, Hand, Save, Loader2 } from 'lucide-react';
 import { MadeWithDyad } from '@/components/made-with-dyad';
+// Removed ToggleGroup import
 import AutomaticAttendanceTable from '@/components/AutomaticAttendanceTable';
 import ManualAttendanceForm from '@/components/ManualAttendanceForm';
 import AttendanceHistoryTable from '@/components/AttendanceHistoryTable';
 import { showSuccess, showError } from '@/utils/toast';
 
-type AttendanceMode = 'automatic' | 'manual' | null;
+type AttendanceMode = 'automatic' | 'manual';
 
 const DashboardPage: React.FC = () => {
   const { logout } = useAuth();
   const { addRecord } = useAttendance();
-  const [mode, setMode] = useState<AttendanceMode>(null); // Initial state is null
+  const [mode, setMode] = useState<AttendanceMode>('automatic');
   const [currentRecords, setCurrentRecords] = useState<FinalAttendanceEntry[]>([]);
   const [isRecording, setIsRecording] = useState(false);
   
@@ -25,13 +26,6 @@ const DashboardPage: React.FC = () => {
   const handleRecordsChange = useCallback((records: FinalAttendanceEntry[]) => {
     setCurrentRecords(records);
   }, []);
-
-  const handleModeChange = (newMode: AttendanceMode) => {
-    if (newMode === 'automatic' || newMode === 'manual') {
-      setMode(newMode);
-      setCurrentRecords([]); // Clear records when switching mode
-    }
-  };
 
   const handleRecordAttendance = () => {
     if (currentRecords.length === 0) {
@@ -77,48 +71,43 @@ const DashboardPage: React.FC = () => {
       </header>
 
       <div className="mb-8 flex flex-col items-center">
-        {/* Mode Selection using two separate buttons (Always visible) */}
+        {/* Mode Selection using two separate buttons */}
         <div className="flex space-x-4 mb-6">
           <Button 
             variant={mode === 'automatic' ? 'default' : 'outline'}
-            onClick={() => handleModeChange('automatic')}
+            onClick={() => setMode('automatic')}
             className="px-6"
           >
             <Zap className="h-4 w-4 mr-2" /> Automatic Mode
           </Button>
           <Button 
             variant={mode === 'manual' ? 'default' : 'outline'}
-            onClick={() => handleModeChange('manual')}
+            onClick={() => setMode('manual')}
             className="px-6"
           >
             <Hand className="h-4 w-4 mr-2" /> Manual Mode
           </Button>
         </div>
         
-        {/* Finalize button is only visible if a mode is selected */}
-        {mode && (
-          <>
-            <Button 
-              onClick={handleRecordAttendance} 
-              disabled={isRecordButtonDisabled}
-              className="w-full max-w-md"
-            >
-              {isRecording ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Recording...
-                </>
-              ) : (
-                <>
-                  <Save className="mr-2 h-4 w-4" /> Finalize & Record Attendance ({currentRecords.length} entries)
-                </>
-              )}
-            </Button>
-            {isRecordButtonDisabled && currentRecords.length === 0 && (
-                <p className="text-sm text-red-500 mt-2">
-                    {mode === 'automatic' ? 'Waiting for data from MQTT topic 1/0...' : 'Please check students manually.'}
-                </p>
-            )}
-          </>
+        <Button 
+          onClick={handleRecordAttendance} 
+          disabled={isRecordButtonDisabled}
+          className="w-full max-w-md"
+        >
+          {isRecording ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Recording...
+            </>
+          ) : (
+            <>
+              <Save className="mr-2 h-4 w-4" /> Finalize & Record Attendance ({currentRecords.length} entries)
+            </>
+          )}
+        </Button>
+        {isRecordButtonDisabled && currentRecords.length === 0 && (
+            <p className="text-sm text-red-500 mt-2">
+                {mode === 'automatic' ? 'Waiting for data from MQTT topic 1/0...' : 'Please check students manually.'}
+            </p>
         )}
       </div>
 
@@ -130,15 +119,9 @@ const DashboardPage: React.FC = () => {
         {mode === 'manual' && (
           <ManualAttendanceForm onRecordsChange={handleRecordsChange} />
         )}
-        
-        {!mode && (
-            <div className="h-40 flex items-center justify-center text-xl text-muted-foreground border rounded-lg bg-card">
-                Please select an attendance mode to begin.
-            </div>
-        )}
       </div>
       
-      {/* Attendance History Section remains visible */}
+      {/* Attendance History Section */}
       <AttendanceHistoryTable />
       
       <div className="mt-8">
