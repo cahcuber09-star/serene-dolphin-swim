@@ -1,11 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useMqtt } from '@/hooks/useMqtt';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Send } from 'lucide-react';
-import { showSuccess } from '@/utils/toast';
+import { Loader2 } from 'lucide-react';
+import { FinalAttendanceEntry } from '@/contexts/AttendanceContext';
 
 const STUDENTS = [
   { id: 1, name: 'Danillo' },
@@ -15,12 +14,14 @@ const STUDENTS = [
   { id: 5, name: 'Andhika' },
 ];
 
-const ManualAttendanceForm: React.FC = () => {
+interface ManualAttendanceFormProps {
+  onRecordsChange: (records: FinalAttendanceEntry[]) => void;
+}
+
+const ManualAttendanceForm: React.FC<ManualAttendanceFormProps> = ({ onRecordsChange }) => {
   const topic = "1/2";
-  // We use useMqtt here primarily for connection status and publishing
-  const { isConnected, publish } = useMqtt(topic); 
+  const { isConnected } = useMqtt(topic); 
   const [checkedStudents, setCheckedStudents] = useState<Record<number, boolean>>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleCheckChange = (id: number, checked: boolean) => {
     setCheckedStudents(prev => ({
@@ -28,35 +29,23 @@ const ManualAttendanceForm: React.FC = () => {
       [id]: checked,
     }));
   };
-
-  const handleSubmit = () => {
-    if (!isConnected) {
-      alert("MQTT client is not connected. Please wait.");
-      return;
-    }
-
-    setIsSubmitting(true);
+  
+  // Calculate records whenever checklist changes
+  useEffect(() => {
     const now = new Date();
-    const timestamp = now.toISOString();
-    
-    const attendanceRecords = STUDENTS.map(student => ({
+    const date = now.toLocaleDateString();
+    const time = now.toLocaleTimeString();
+
+    const attendanceRecords: FinalAttendanceEntry[] = STUDENTS.map(student => ({
       name: student.name,
       status: checkedStudents[student.id] ? 'Hadir Manual' : 'Tidak Hadir',
-      date: now.toLocaleDateString(),
-      time: now.toLocaleTimeString(),
+      date: date,
+      time: time,
     }));
+    
+    onRecordsChange(attendanceRecords);
+  }, [checkedStudents, onRecordsChange]);
 
-    // Publish all records as a single JSON array
-    const payload = JSON.stringify(attendanceRecords);
-    
-    publish(topic, payload);
-    
-    showSuccess(`Manual attendance data published to topic ${topic}.`);
-    
-    // Reset form state after submission
-    setCheckedStudents({});
-    setIsSubmitting(false);
-  };
 
   return (
     <Card className="h-full flex flex-col">
@@ -71,7 +60,7 @@ const ManualAttendanceForm: React.FC = () => {
       </CardHeader>
       <CardContent className="flex-grow pt-4">
         <p className="text-sm text-muted-foreground mb-4">
-          Checklist mahasiswa yang hadir secara manual. Data akan dikirim ke topik {topic}.
+          Checklist mahasiswa yang hadir secara manual. Data akan disiapkan untuk direkam.
         </p>
         
         <div className="space-y-3 mb-6">
@@ -92,21 +81,7 @@ const ManualAttendanceForm: React.FC = () => {
           ))}
         </div>
         
-        <Button 
-          onClick={handleSubmit} 
-          disabled={!isConnected || isSubmitting}
-          className="w-full"
-        >
-          {isSubmitting ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Sending...
-            </>
-          ) : (
-            <>
-              <Send className="mr-2 h-4 w-4" /> Record Attendance
-            </>
-          )}
-        </Button>
+        {/* Removed internal submit button, relying on parent component */}
       </CardContent>
     </Card>
   );

@@ -1,17 +1,18 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useMqtt } from '@/hooks/useMqtt';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Loader2 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { FinalAttendanceEntry } from '@/contexts/AttendanceContext'; // Use the defined interface
 
-interface AttendanceRecord {
-  name: string;
-  status: string;
-  timestamp: number;
-  date: string;
-  time: string;
+interface AttendanceRecord extends FinalAttendanceEntry {
+  timestamp: number; // Keep timestamp locally for sorting/display
+}
+
+interface AutomaticAttendanceTableProps {
+  onRecordsChange: (records: FinalAttendanceEntry[]) => void;
 }
 
 const parseMessage = (message: string, timestamp: number): AttendanceRecord | null => {
@@ -19,9 +20,12 @@ const parseMessage = (message: string, timestamp: number): AttendanceRecord | nu
     const data = JSON.parse(message);
     if (data && typeof data.nama === 'string' && typeof data.status === 'string') {
       const dateObj = new Date(timestamp);
+      // Ensure status is one of the expected types, defaulting if necessary
+      const status: FinalAttendanceEntry['status'] = data.status === 'Hadir' ? 'Hadir' : 'Tidak Hadir'; 
+      
       return {
         name: data.nama,
-        status: data.status,
+        status: status,
         timestamp,
         date: dateObj.toLocaleDateString(),
         time: dateObj.toLocaleTimeString(),
@@ -33,13 +37,21 @@ const parseMessage = (message: string, timestamp: number): AttendanceRecord | nu
   return null;
 };
 
-const AutomaticAttendanceTable: React.FC = () => {
+const AutomaticAttendanceTable: React.FC<AutomaticAttendanceTableProps> = ({ onRecordsChange }) => {
   const topic = "1/0";
   const { messages, isConnected } = useMqtt(topic);
 
   const records: AttendanceRecord[] = messages
     .map(msg => parseMessage(msg.message, msg.timestamp))
     .filter((record): record is AttendanceRecord => record !== null);
+    
+  // Notify parent component whenever records change
+  useEffect(() => {
+    // Map to FinalAttendanceEntry structure (excluding timestamp)
+    const entries: FinalAttendanceEntry[] = records.map(({ name, status, date, time }) => ({ name, status, date, time }));
+    onRecordsChange(entries);
+  }, [records, onRecordsChange]);
+
 
   return (
     <Card className="h-full flex flex-col">
