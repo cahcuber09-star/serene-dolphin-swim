@@ -73,15 +73,6 @@ const DashboardPage: React.FC = () => {
           <Hand className="h-6 w-6 mb-1" /> Manual Mode
         </Button>
       </div>
-      
-      {/* Attendance History Section always visible */}
-      <div className="mt-12 w-full max-w-4xl">
-        <AttendanceHistoryTable />
-      </div>
-      
-      <div className="mt-8">
-        <MadeWithDyad />
-      </div>
     </div>
   );
 
@@ -115,6 +106,13 @@ const DashboardPage: React.FC = () => {
         {mode === 'manual' && (
           <ManualAttendanceForm onRecordsChange={handleRecordsChange} />
         )}
+      </div>
+      
+      {/* Attendance History Section */}
+      <AttendanceHistoryTable />
+      
+      <div className="mt-8">
+        <MadeWithDyad />
       </div>
     </>
   );
