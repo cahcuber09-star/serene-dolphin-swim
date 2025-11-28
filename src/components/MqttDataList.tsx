@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Loader2 } from 'lucide-react';
+import MqttMessageDisplay from './MqttMessageDisplay';
 
 interface MqttDataListProps {
   title: string;
@@ -12,10 +13,6 @@ interface MqttDataListProps {
 
 const MqttDataList: React.FC<MqttDataListProps> = ({ title, topic }) => {
   const { messages, isConnected } = useMqtt(topic);
-
-  const formatTimestamp = (timestamp: number) => {
-    return new Date(timestamp).toLocaleTimeString();
-  };
 
   return (
     <Card className="h-full flex flex-col">
@@ -36,12 +33,7 @@ const MqttDataList: React.FC<MqttDataListProps> = ({ title, topic }) => {
           ) : (
             <ul className="space-y-2">
               {messages.map((msg, index) => (
-                <li key={index} className="flex justify-between items-center p-2 bg-secondary/50 rounded-md">
-                  <span className="font-mono text-sm truncate">{msg.message}</span>
-                  <span className="text-xs text-muted-foreground ml-4 flex-shrink-0">
-                    {formatTimestamp(msg.timestamp)}
-                  </span>
-                </li>
+                <MqttMessageDisplay key={index} msg={msg} />
               ))}
             </ul>
           )}
