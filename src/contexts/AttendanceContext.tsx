@@ -3,9 +3,10 @@ import { showSuccess } from '@/utils/toast';
 
 export interface FinalAttendanceEntry {
   name: string;
-  status: 'Hadir' | 'Tidak Hadir' | 'Hadir Manual';
+  status: 'Hadir' | 'Tidak Hadir' | 'Hadir Manual' | 'Sakit' | 'Izin' | 'Alpha';
   date: string;
   time: string;
+  note?: string; // Added optional note field
 }
 
 export interface FinalAttendanceRecord {

@@ -6,7 +6,10 @@ import path from "path";
 export default defineConfig(() => ({
   server: {
     host: "::",
-    port: 8080,
+    port: 32100, // Samakan dengan port yang Anda gunakan di tunnel
+    allowedHosts: [
+      "kemecer.dpdns.org" // Tambahkan ini agar tidak diblokir
+    ],
   },
   plugins: [dyadComponentTagger(), react()],
   resolve: {
