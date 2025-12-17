@@ -41,7 +41,7 @@ const AttendancePage: React.FC = () => {
           </CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground">
-              Merekam kehadiran secara otomatis melalui input sensor/perangkat IoT (MQTT Topic 1/0).
+              Merekam kehadiran secara otomatis melalui input sensor/perangkat IoT (MQTT Topic absensi/rfid/data).
             </p>
             <Button className="mt-4 w-full">Mulai Absensi Otomatis</Button>
           </CardContent>

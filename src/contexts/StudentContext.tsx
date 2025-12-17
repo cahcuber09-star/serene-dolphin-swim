@@ -8,15 +8,8 @@ export interface Student {
   class: string;
 }
 
-const MOCK_STUDENTS: Student[] = [
-  { id: 's1', name: 'Danillo', nim: '190101001', class: 'A' },
-  { id: 's2', name: 'Nabhan', nim: '190101002', class: 'B' },
-  { id: 's3', name: 'Natasya', nim: '190101003', class: 'A' },
-  { id: 's4', name: 'Tryandhono', nim: '190101004', class: 'C' },
-  { id: 's5', name: 'Andhika', nim: '190101005', class: 'B' },
-  { id: 's6', name: 'Budi Santoso', nim: '190101006', class: 'A' },
-  { id: 's7', name: 'Citra Dewi', nim: '190101007', class: 'C' },
-];
+// Initial student list is now empty as requested
+const INITIAL_STUDENTS: Student[] = [];
 
 interface StudentContextType {
   students: Student[];
@@ -42,7 +35,7 @@ interface StudentProviderProps {
 const generateId = () => Math.random().toString(36).substring(2, 9);
 
 export const StudentProvider: React.FC<StudentProviderProps> = ({ children }) => {
-  const [students, setStudents] = useState<Student[]>(MOCK_STUDENTS);
+  const [students, setStudents] = useState<Student[]>(INITIAL_STUDENTS);
 
   const addStudent = (student: Omit<Student, 'id'>) => {
     const newStudent: Student = { ...student, id: generateId() };

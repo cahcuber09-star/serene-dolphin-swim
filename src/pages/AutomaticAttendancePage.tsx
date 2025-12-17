@@ -5,7 +5,7 @@ import { useAttendance, FinalAttendanceEntry } from '@/contexts/AttendanceContex
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Zap, Save, Loader2, Calendar as CalendarIcon } from 'lucide-react';
+import { Save, Loader2, Calendar as CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { showSuccess, showError } from '@/utils/toast';
@@ -20,95 +20,125 @@ interface LiveAttendanceEntry {
 const AutomaticAttendancePage: React.FC = () => {
   const { students } = useStudents();
   const { addRecord } = useAttendance();
-  const MQTT_TOPIC = "1/0";
+  const MQTT_TOPIC = "absensi/rfid/data";
   const { isConnected, messages } = useMqtt(MQTT_TOPIC);
   const [liveAttendance, setLiveAttendance] = useState<LiveAttendanceEntry[]>([]);
   const [isRecording, setIsRecording] = useState(false);
 
-  // Process incoming MQTT messages
+  // 1. Initialization: Set up initial 'Tidak Hadir' state for all students
+  useEffect(() => {
+    const initialData: LiveAttendanceEntry[] = students.map(student => ({
+        student,
+        status: 'Tidak Hadir',
+        date: format(new Date(), 'dd/MM/yyyy'),
+        time: format(new Date(), 'HH:mm:ss'),
+    }));
+    // Only initialize if the student list changes or if liveAttendance is empty
+    setLiveAttendance(initialData.sort((a, b) => a.student.name.localeCompare(b.student.name)));
+  }, [students]);
+
+  // 2. Process incoming MQTT messages (single NIM/ID per message)
   useEffect(() => {
     if (messages.length > 0) {
-      const latestMessage = messages[0].message;
+      const latestMessage = messages[0].message.trim();
+      
+      // Expecting the message to be a single NIM string (e.g., "190101001")
+      const scannedNIM = latestMessage; 
+      
       const now = new Date();
       const formattedDate = format(now, 'dd/MM/yyyy');
       const formattedTime = format(now, 'HH:mm:ss');
       
-      let presentStudentIds: string[] = [];
-      
-      try {
-        // Assuming MQTT message is a JSON string containing an array of student IDs who are present
-        // Example: ["s1", "s3"]
-        presentStudentIds = JSON.parse(latestMessage);
-        if (!Array.isArray(presentStudentIds)) {
-            throw new Error("Message is not an array.");
-        }
-      } catch (e) {
-        console.error(`Failed to parse MQTT message from ${MQTT_TOPIC}:`, e);
-        // If parsing fails, we assume no valid data was received for this cycle
-        presentStudentIds = []; 
-      }
+      // Find the student matching the scanned NIM
+      const studentScanned = students.find(s => s.nim === scannedNIM);
 
-      // Create a map of all students, defaulting to 'Tidak Hadir'
-      const newLiveAttendanceMap: Record<string, LiveAttendanceEntry> = {};
-      
-      students.forEach(student => {
-        const isPresent = presentStudentIds.includes(student.id);
-        
-        // If student was already present in the current live session, keep their existing entry
-        const existingEntry = liveAttendance.find(e => e.student.id === student.id);
-        
-        if (isPresent) {
-            // If present, record the current time/date
-            newLiveAttendanceMap[student.id] = {
-                student,
-                status: 'Hadir',
-                date: formattedDate,
-                time: formattedTime,
-            };
-        } else if (existingEntry && existingEntry.status === 'Hadir') {
-            // If they were previously marked Hadir in this session, keep that status/time
-            newLiveAttendanceMap[student.id] = existingEntry;
-        } else {
-            // Otherwise, mark as Tidak Hadir (or keep existing 'Tidak Hadir' status)
-            newLiveAttendanceMap[student.id] = {
-                student,
-                status: 'Tidak Hadir',
-                date: formattedDate, // Use current date/time for non-present status too, for consistency
-                time: formattedTime,
-            };
+      if (studentScanned) {
+        setLiveAttendance(prevLive => {
+          // Use a map for efficient updates
+          const liveMap = new Map(prevLive.map(entry => [entry.student.id, entry]));
+          
+          const existingEntry = liveMap.get(studentScanned.id);
+          
+          if (existingEntry && existingEntry.status === 'Hadir') {
+              // Student already marked present
+              showSuccess(`${studentScanned.name} sudah tercatat hadir.`);
+              return prevLive; 
+          }
+
+          // Update the specific student entry to Hadir
+          const updatedEntry: LiveAttendanceEntry = {
+            student: studentScanned,
+            status: 'Hadir',
+            date: formattedDate,
+            time: formattedTime,
+          };
+          
+          liveMap.set(studentScanned.id, updatedEntry);
+          
+          // Convert map back to array and sort
+          const newLiveAttendance = Array.from(liveMap.values()).sort((a, b) => a.student.name.localeCompare(b.student.name));
+          
+          showSuccess(`${studentScanned.name} (${scannedNIM}) berhasil tercatat hadir.`);
+          return newLiveAttendance;
+        });
+      } else {
+        // Only show error if the message is non-empty and didn't match a student
+        if (scannedNIM) {
+            showError(`NIM/ID ${scannedNIM} tidak ditemukan dalam daftar mahasiswa.`);
         }
-      });
-      
-      // Convert map back to array, sorted by student name
-      setLiveAttendance(Object.values(newLiveAttendanceMap).sort((a, b) => a.student.name.localeCompare(b.student.name)));
+      }
     }
-  }, [messages, students]); // Depend on messages and students
+  }, [messages, students]); 
 
   const handleFinalizeAttendance = () => {
-    if (liveAttendance.length === 0) {
-      showError("No live attendance data to record. Please wait for MQTT data.");
+    if (students.length === 0) {
+      showError("Tidak ada data mahasiswa untuk direkam.");
       return;
     }
     
     setIsRecording(true);
     
-    const entries: FinalAttendanceEntry[] = liveAttendance.map(entry => ({
-      name: entry.student.name,
-      // Use the status recorded in the liveAttendance state
-      status: entry.status === 'Hadir' ? 'Hadir' : 'Alpha', 
-      date: entry.date,
-      time: entry.time,
-      note: entry.status === 'Tidak Hadir' ? 'Otomatis Alpha' : '',
-    }));
+    const now = new Date();
+    const defaultDate = format(now, 'dd/MM/yyyy');
+    const defaultTime = format(now, 'HH:mm:ss');
+
+    // Ensure we process ALL students, using liveAttendance data if available, otherwise defaulting to Alpha
+    const liveMap = new Map(liveAttendance.map(entry => [entry.student.id, entry]));
+
+    const entries: FinalAttendanceEntry[] = students.map(student => {
+        const liveEntry = liveMap.get(student.id);
+        
+        const status = (liveEntry && liveEntry.status === 'Hadir') ? 'Hadir' : 'Alpha';
+        const date = liveEntry?.date || defaultDate;
+        const time = liveEntry?.time || defaultTime;
+        const note = status === 'Alpha' ? 'Otomatis Alpha' : '';
+        
+        return {
+            name: student.name,
+            status: status as FinalAttendanceEntry['status'],
+            date,
+            time,
+            note,
+        };
+    });
     
     addRecord('Automatic', entries);
-    setLiveAttendance([]); // Clear live data after recording
+    
+    // Re-initialize live attendance for the next session
+    const initialData: LiveAttendanceEntry[] = students.map(student => ({
+        student,
+        status: 'Tidak Hadir',
+        date: format(new Date(), 'dd/MM/yyyy'),
+        time: format(new Date(), 'HH:mm:ss'),
+    }));
+    setLiveAttendance(initialData.sort((a, b) => a.student.name.localeCompare(b.student.name)));
+    
     setIsRecording(false);
   };
 
   const totalPresent = liveAttendance.filter(e => e.status === 'Hadir').length;
   const totalStudents = students.length;
-  const isFinalizeDisabled = isRecording || liveAttendance.length === 0;
+  const isFinalizeDisabled = isRecording || totalStudents === 0;
   
   // Determine the current date/time to display in the header
   const displayDate = liveAttendance.length > 0 ? liveAttendance[0].date : format(new Date(), 'dd/MM/yyyy');
@@ -127,7 +157,7 @@ const AutomaticAttendancePage: React.FC = () => {
           </span>
         </p>
         <p className="text-sm font-medium text-muted-foreground">
-          Topik: {MQTT_TOPIC}
+          Topik: {MQTT_TOPIC} (Menunggu NIM/ID Mahasiswa)
         </p>
       </div>
 
@@ -156,6 +186,7 @@ const AutomaticAttendancePage: React.FC = () => {
                 <TableRow>
                   <TableHead className="w-[50px]">NO</TableHead>
                   <TableHead>NAMA MAHASISWA</TableHead>
+                  <TableHead>NIM</TableHead>
                   <TableHead>STATUS KEHADIRAN</TableHead>
                   <TableHead>TANGGAL ABSENSI</TableHead>
                   <TableHead>JAM</TableHead>
@@ -164,14 +195,14 @@ const AutomaticAttendancePage: React.FC = () => {
               <TableBody>
                 {!isConnected ? (
                     <TableRow>
-                        <TableCell colSpan={5} className="h-24 text-center text-red-500">
+                        <TableCell colSpan={6} className="h-24 text-center text-red-500">
                             Tidak terhubung ke MQTT broker.
                         </TableCell>
                     </TableRow>
                 ) : students.length === 0 ? (
                     <TableRow>
-                        <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
-                            Tidak ada data mahasiswa.
+                        <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
+                            Tidak ada data mahasiswa. Silakan tambahkan mahasiswa terlebih dahulu.
                         </TableCell>
                     </TableRow>
                 ) : (
@@ -182,6 +213,7 @@ const AutomaticAttendancePage: React.FC = () => {
                             <TableRow key={entry.student.id} className={status === 'Hadir' ? 'bg-green-50/50 dark:bg-green-900/10' : ''}>
                                 <TableCell>{index + 1}</TableCell>
                                 <TableCell className="font-medium">{entry.student.name}</TableCell>
+                                <TableCell>{entry.student.nim}</TableCell>
                                 <TableCell>
                                     <span className={cn(
                                         "font-semibold",
