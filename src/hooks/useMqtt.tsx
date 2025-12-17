@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import mqtt from 'mqtt';
 
-// Menggunakan port WebSocket 8000 untuk kompatibilitas browser
+// Menggunakan port WebSocket 8000 untuk kompatibilitas browser, 
+// karena port MQTT standar (1883) diblokir oleh browser.
 const BROKER_URL = 'ws://broker.hivemq.com:8000/mqtt'; 
 
 interface MqttMessage {
