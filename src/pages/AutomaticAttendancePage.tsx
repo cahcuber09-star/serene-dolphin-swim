@@ -13,12 +13,15 @@ import { showSuccess, showError } from '@/utils/toast';
 interface LiveAttendanceEntry {
   student: Student;
   status: 'Hadir' | 'Tidak Hadir';
+  date: string;
+  time: string;
 }
 
 const AutomaticAttendancePage: React.FC = () => {
   const { students } = useStudents();
   const { addRecord } = useAttendance();
-  const { isConnected, messages } = useMqtt("1/0");
+  const MQTT_TOPIC = "1/0";
+  const { isConnected, messages } = useMqtt(MQTT_TOPIC);
   const [liveAttendance, setLiveAttendance] = useState<LiveAttendanceEntry[]>([]);
   const [isRecording, setIsRecording] = useState(false);
 
@@ -26,6 +29,10 @@ const AutomaticAttendancePage: React.FC = () => {
   useEffect(() => {
     if (messages.length > 0) {
       const latestMessage = messages[0].message;
+      const now = new Date();
+      const formattedDate = format(now, 'dd/MM/yyyy');
+      const formattedTime = format(now, 'HH:mm:ss');
+      
       let presentStudentIds: string[] = [];
       
       try {
@@ -36,23 +43,46 @@ const AutomaticAttendancePage: React.FC = () => {
             throw new Error("Message is not an array.");
         }
       } catch (e) {
-        console.error("Failed to parse MQTT message from 1/0:", e);
-        // Fallback: treat message as a single ID if parsing fails
-        // This is a robust fallback, but ideally the device sends JSON array.
+        console.error(`Failed to parse MQTT message from ${MQTT_TOPIC}:`, e);
+        // If parsing fails, we assume no valid data was received for this cycle
         presentStudentIds = []; 
       }
 
-      const newLiveAttendance: LiveAttendanceEntry[] = students.map(student => {
-        // Check if the student ID is in the list of present IDs
+      // Create a map of all students, defaulting to 'Tidak Hadir'
+      const newLiveAttendanceMap: Record<string, LiveAttendanceEntry> = {};
+      
+      students.forEach(student => {
         const isPresent = presentStudentIds.includes(student.id);
-        return {
-          student,
-          status: isPresent ? 'Hadir' : 'Tidak Hadir',
-        };
+        
+        // If student was already present in the current live session, keep their existing entry
+        const existingEntry = liveAttendance.find(e => e.student.id === student.id);
+        
+        if (isPresent) {
+            // If present, record the current time/date
+            newLiveAttendanceMap[student.id] = {
+                student,
+                status: 'Hadir',
+                date: formattedDate,
+                time: formattedTime,
+            };
+        } else if (existingEntry && existingEntry.status === 'Hadir') {
+            // If they were previously marked Hadir in this session, keep that status/time
+            newLiveAttendanceMap[student.id] = existingEntry;
+        } else {
+            // Otherwise, mark as Tidak Hadir (or keep existing 'Tidak Hadir' status)
+            newLiveAttendanceMap[student.id] = {
+                student,
+                status: 'Tidak Hadir',
+                date: formattedDate, // Use current date/time for non-present status too, for consistency
+                time: formattedTime,
+            };
+        }
       });
-      setLiveAttendance(newLiveAttendance);
+      
+      // Convert map back to array, sorted by student name
+      setLiveAttendance(Object.values(newLiveAttendanceMap).sort((a, b) => a.student.name.localeCompare(b.student.name)));
     }
-  }, [messages, students]);
+  }, [messages, students]); // Depend on messages and students
 
   const handleFinalizeAttendance = () => {
     if (liveAttendance.length === 0) {
@@ -62,14 +92,12 @@ const AutomaticAttendancePage: React.FC = () => {
     
     setIsRecording(true);
     
-    const formattedDate = format(new Date(), 'dd/MM/yyyy');
-    const formattedTime = format(new Date(), 'HH:mm:ss');
-
     const entries: FinalAttendanceEntry[] = liveAttendance.map(entry => ({
       name: entry.student.name,
-      status: entry.status === 'Hadir' ? 'Hadir' : 'Alpha', // Automatic mode only records Hadir or Alpha
-      date: formattedDate,
-      time: formattedTime,
+      // Use the status recorded in the liveAttendance state
+      status: entry.status === 'Hadir' ? 'Hadir' : 'Alpha', 
+      date: entry.date,
+      time: entry.time,
       note: entry.status === 'Tidak Hadir' ? 'Otomatis Alpha' : '',
     }));
     
@@ -81,26 +109,38 @@ const AutomaticAttendancePage: React.FC = () => {
   const totalPresent = liveAttendance.filter(e => e.status === 'Hadir').length;
   const totalStudents = students.length;
   const isFinalizeDisabled = isRecording || liveAttendance.length === 0;
+  
+  // Determine the current date/time to display in the header
+  const displayDate = liveAttendance.length > 0 ? liveAttendance[0].date : format(new Date(), 'dd/MM/yyyy');
+  const displayTime = liveAttendance.length > 0 ? liveAttendance[0].time : format(new Date(), 'HH:mm:ss');
+
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold flex items-center">
-        <Zap className="h-6 w-6 mr-2" /> Absensi Otomatis (Topic 1/0)
-      </h2>
-      <p className={cn("text-sm", isConnected ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400")}>
-        MQTT Status: {isConnected ? 'Connected' : 'Disconnected'} to broker.hivemq.com:8000
-      </p>
+      <h2 className="text-3xl font-bold">Mode Otomatis</h2>
+      
+      <div className="space-y-2">
+        <p className="text-sm font-medium">
+          Status Koneksi MQTT: 
+          <span className={cn("ml-1 font-semibold", isConnected ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400")}>
+            {isConnected ? 'Tersambung' : 'Terputus'}
+          </span>
+        </p>
+        <p className="text-sm font-medium text-muted-foreground">
+          Topik: {MQTT_TOPIC}
+        </p>
+      </div>
 
       <Card>
         <CardHeader className="flex flex-row flex-wrap items-center justify-between space-y-2 pb-4">
           <div className="flex items-center space-x-4">
             <CalendarIcon className="h-4 w-4 text-muted-foreground mr-2" />
-            <span className="font-medium">{format(new Date(), 'PPP, HH:mm:ss')}</span>
+            <span className="font-medium">Data Live Absensi ({displayDate} {displayTime})</span>
           </div>
           <Button onClick={handleFinalizeAttendance} disabled={isFinalizeDisabled}>
               {isRecording ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Recording...
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Merekam...
                 </>
               ) : (
                 <>
@@ -115,30 +155,33 @@ const AutomaticAttendancePage: React.FC = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[50px]">NO</TableHead>
-                  <TableHead>NAMA LENGKAP</TableHead>
-                  <TableHead>NIM</TableHead>
-                  <TableHead>KELAS</TableHead>
-                  <TableHead className="w-[150px]">STATUS KEHADIRAN</TableHead>
+                  <TableHead>NAMA MAHASISWA</TableHead>
+                  <TableHead>STATUS KEHADIRAN</TableHead>
+                  <TableHead>TANGGAL ABSENSI</TableHead>
+                  <TableHead>JAM</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {students.length === 0 ? (
+                {!isConnected ? (
+                    <TableRow>
+                        <TableCell colSpan={5} className="h-24 text-center text-red-500">
+                            Tidak terhubung ke MQTT broker.
+                        </TableCell>
+                    </TableRow>
+                ) : students.length === 0 ? (
                     <TableRow>
                         <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
                             Tidak ada data mahasiswa.
                         </TableCell>
                     </TableRow>
                 ) : (
-                    students.map((student, index) => {
-                        const liveEntry = liveAttendance.find(e => e.student.id === student.id);
-                        const status = liveEntry?.status || 'Tidak Hadir';
+                    liveAttendance.map((entry, index) => {
+                        const status = entry.status;
                         
                         return (
-                            <TableRow key={student.id} className={status === 'Hadir' ? 'bg-green-50/50 dark:bg-green-900/10' : ''}>
+                            <TableRow key={entry.student.id} className={status === 'Hadir' ? 'bg-green-50/50 dark:bg-green-900/10' : ''}>
                                 <TableCell>{index + 1}</TableCell>
-                                <TableCell className="font-medium">{student.name}</TableCell>
-                                <TableCell>{student.nim}</TableCell>
-                                <TableCell>{student.class}</TableCell>
+                                <TableCell className="font-medium">{entry.student.name}</TableCell>
                                 <TableCell>
                                     <span className={cn(
                                         "font-semibold",
@@ -147,6 +190,8 @@ const AutomaticAttendancePage: React.FC = () => {
                                         {status}
                                     </span>
                                 </TableCell>
+                                <TableCell>{entry.date}</TableCell>
+                                <TableCell>{entry.time}</TableCell>
                             </TableRow>
                         );
                     })
