@@ -25,20 +25,6 @@ const AutomaticAttendancePage: React.FC = () => {
   const [liveAttendance, setLiveAttendance] = useState<LiveAttendanceEntry[]>([]);
   const [isRecording, setIsRecording] = useState(false);
 
-  // Initialize live attendance state when students load
-  useEffect(() => {
-    if (students.length > 0 && liveAttendance.length === 0) {
-        const initialLiveAttendance: LiveAttendanceEntry[] = students.map(student => ({
-            student,
-            status: 'Tidak Hadir',
-            date: format(new Date(), 'dd/MM/yyyy'),
-            time: format(new Date(), 'HH:mm:ss'),
-        }));
-        setLiveAttendance(initialLiveAttendance.sort((a, b) => a.student.name.localeCompare(b.student.name)));
-    }
-  }, [students]);
-
-
   // Process incoming MQTT messages
   useEffect(() => {
     if (messages.length > 0) {
@@ -58,20 +44,21 @@ const AutomaticAttendancePage: React.FC = () => {
         }
       } catch (e) {
         console.error(`Failed to parse MQTT message from ${MQTT_TOPIC}:`, e);
+        // If parsing fails, we assume no valid data was received for this cycle
         presentStudentIds = []; 
       }
 
-      // Create a map of all students, defaulting to 'Tidak Hadir' or keeping existing 'Hadir' status
+      // Create a map of all students, defaulting to 'Tidak Hadir'
       const newLiveAttendanceMap: Record<string, LiveAttendanceEntry> = {};
       
       students.forEach(student => {
-        const isPresentInMessage = presentStudentIds.includes(student.id);
+        const isPresent = presentStudentIds.includes(student.id);
         
-        // Find existing entry
+        // If student was already present in the current live session, keep their existing entry
         const existingEntry = liveAttendance.find(e => e.student.id === student.id);
         
-        if (isPresentInMessage) {
-            // If present in the latest message, update status and time
+        if (isPresent) {
+            // If present, record the current time/date
             newLiveAttendanceMap[student.id] = {
                 student,
                 status: 'Hadir',
@@ -82,11 +69,11 @@ const AutomaticAttendancePage: React.FC = () => {
             // If they were previously marked Hadir in this session, keep that status/time
             newLiveAttendanceMap[student.id] = existingEntry;
         } else {
-            // Otherwise, mark as Tidak Hadir
+            // Otherwise, mark as Tidak Hadir (or keep existing 'Tidak Hadir' status)
             newLiveAttendanceMap[student.id] = {
                 student,
                 status: 'Tidak Hadir',
-                date: formattedDate, 
+                date: formattedDate, // Use current date/time for non-present status too, for consistency
                 time: formattedTime,
             };
         }
@@ -95,11 +82,11 @@ const AutomaticAttendancePage: React.FC = () => {
       // Convert map back to array, sorted by student name
       setLiveAttendance(Object.values(newLiveAttendanceMap).sort((a, b) => a.student.name.localeCompare(b.student.name)));
     }
-  }, [messages, students]); 
+  }, [messages, students]); // Depend on messages and students
 
   const handleFinalizeAttendance = () => {
     if (liveAttendance.length === 0) {
-      showError("No live attendance data to record. Please wait for MQTT data or ensure students are loaded.");
+      showError("No live attendance data to record. Please wait for MQTT data.");
       return;
     }
     
@@ -107,7 +94,7 @@ const AutomaticAttendancePage: React.FC = () => {
     
     const entries: FinalAttendanceEntry[] = liveAttendance.map(entry => ({
       name: entry.student.name,
-      // Mark 'Tidak Hadir' as 'Alpha' upon finalization
+      // Use the status recorded in the liveAttendance state
       status: entry.status === 'Hadir' ? 'Hadir' : 'Alpha', 
       date: entry.date,
       time: entry.time,
@@ -115,16 +102,7 @@ const AutomaticAttendancePage: React.FC = () => {
     }));
     
     addRecord('Automatic', entries);
-    
-    // Reset live data to initial state (all 'Tidak Hadir') after recording
-    const resetLiveAttendance: LiveAttendanceEntry[] = students.map(student => ({
-        student,
-        status: 'Tidak Hadir',
-        date: format(new Date(), 'dd/MM/yyyy'),
-        time: format(new Date(), 'HH:mm:ss'),
-    }));
-    setLiveAttendance(resetLiveAttendance.sort((a, b) => a.student.name.localeCompare(b.student.name)));
-    
+    setLiveAttendance([]); // Clear live data after recording
     setIsRecording(false);
   };
 
