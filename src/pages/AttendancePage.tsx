@@ -26,40 +26,40 @@ const AttendancePage: React.FC = () => {
 
   // Mode selection view
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 flex flex-col items-center">
       <h2 className="text-3xl font-bold">Pilih Mode Absensi</h2>
       <p className="text-muted-foreground">Pilih mode yang sesuai untuk merekam kehadiran mahasiswa.</p>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-2 w-full max-w-3xl">
         <Card 
-          className="cursor-pointer hover:shadow-lg transition-shadow"
+          className="cursor-pointer hover:shadow-lg transition-shadow flex flex-col"
           onClick={() => navigate('/dashboard/attendance/automatic')}
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-xl font-semibold">Otomatis</CardTitle>
             <Zap className="h-6 w-6 text-primary" />
           </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              Merekam kehadiran secara otomatis melalui input sensor/perangkat IoT (MQTT Topic absensi/rfid/data).
+          <CardContent className="flex-1 flex flex-col justify-between">
+            <p className="text-sm text-muted-foreground mb-4">
+              Absensi menggunakan perangkat RFID/IoT.
             </p>
-            <Button className="mt-4 w-full">Mulai Absensi Otomatis</Button>
+            <Button className="w-full">Mulai Absensi Otomatis</Button>
           </CardContent>
         </Card>
 
         <Card 
-          className="cursor-pointer hover:shadow-lg transition-shadow"
+          className="cursor-pointer hover:shadow-lg transition-shadow flex flex-col"
           onClick={() => navigate('/dashboard/attendance/manual')}
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-xl font-semibold">Manual</CardTitle>
             <Hand className="h-6 w-6 text-primary" />
           </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              Pengisian status kehadiran (Hadir, Sakit, Izin, Alpha) secara manual oleh operator (MQTT Topic 1/2).
+          <CardContent className="flex-1 flex flex-col justify-between">
+            <p className="text-sm text-muted-foreground mb-4">
+              Pengisian status kehadiran secara manual oleh operator.
             </p>
-            <Button className="mt-4 w-full" variant="secondary">Mulai Absensi Manual</Button>
+            <Button className="w-full" variant="secondary">Mulai Absensi Manual</Button>
           </CardContent>
         </Card>
       </div>

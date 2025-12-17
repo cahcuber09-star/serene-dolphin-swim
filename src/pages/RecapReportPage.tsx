@@ -77,7 +77,6 @@ const RecapReportPage: React.FC = () => {
             if (ATTENDANCE_STATUSES.includes(entry.status as AttendanceCountKey)) {
                 const countKey = entry.status as AttendanceCountKey;
                 
-                // Fix 1 & 2: Use the narrowed key type (countKey) which is guaranteed to be a numeric property.
                 results[student.id][countKey] = results[student.id][countKey] + 1;
             }
           }
@@ -89,9 +88,36 @@ const RecapReportPage: React.FC = () => {
     showSuccess("Laporan rekapitulasi berhasil dibuat.");
   };
   
-  const handleExport = (type: 'PDF' | 'Excel') => {
-    showSuccess(`Exporting report to ${type}...`);
-    // Placeholder for actual export logic
+  const handleExportExcel = () => {
+    if (recapData.length === 0) {
+        showSuccess("Tidak ada data untuk diekspor. Silakan buat laporan terlebih dahulu.");
+        return;
+    }
+    
+    // Prepare data for CSV export (simulating Excel)
+    const dataToExport = recapData.map(data => ({
+        'NAMA LENGKAP': data.name,
+        'NIM': data.nim,
+        'KELAS': data.class,
+        'HADIR': data.Hadir,
+        'SAKIT': data.Sakit,
+        'IZIN': data.Izin,
+        'ALPHA': data.Alpha,
+    }));
+    
+    // Convert JSON to CSV format
+    const header = Object.keys(dataToExport[0]).join(',');
+    const rows = dataToExport.map(row => Object.values(row).join(','));
+    const csvContent = [header, ...rows].join('\n');
+    
+    const mockDownloadLink = document.createElement('a');
+    mockDownloadLink.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csvContent);
+    mockDownloadLink.download = `Laporan_Absensi_${format(startDate!, 'yyyyMMdd')}_to_${format(endDate!, 'yyyyMMdd')}.csv`; 
+    document.body.appendChild(mockDownloadLink);
+    mockDownloadLink.click();
+    document.body.removeChild(mockDownloadLink);
+    
+    showSuccess("Laporan rekapitulasi berhasil diunduh.");
   };
 
   return (
@@ -174,14 +200,9 @@ const RecapReportPage: React.FC = () => {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-lg font-medium">Hasil Rekapitulasi</CardTitle>
-          <div className="space-x-2">
-            <Button variant="outline" onClick={() => handleExport('PDF')}>
-              <Download className="h-4 w-4 mr-2" /> Export PDF
-            </Button>
-            <Button variant="outline" onClick={() => handleExport('Excel')}>
-              <Download className="h-4 w-4 mr-2" /> Export Excel
-            </Button>
-          </div>
+          <Button variant="outline" onClick={handleExportExcel} disabled={recapData.length === 0}>
+            <Download className="h-4 w-4 mr-2" /> Export Excel
+          </Button>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">

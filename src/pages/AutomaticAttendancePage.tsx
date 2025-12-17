@@ -23,11 +23,17 @@ const AutomaticAttendancePage: React.FC = () => {
   const MQTT_TOPIC = "absensi/rfid/data";
   const { isConnected, messages } = useMqtt(MQTT_TOPIC);
   
-  // liveAttendance hanya menyimpan data mahasiswa yang sudah berhasil scan (Hadir)
   const [liveAttendance, setLiveAttendance] = useState<LiveAttendanceEntry[]>([]);
   const [isRecording, setIsRecording] = useState(false);
+  const [currentTime, setCurrentTime] = useState(new Date()); // State for real-time clock
 
-  // Hapus inisialisasi awal. Tabel dimulai kosong.
+  // Real-time clock effect
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   // 2. Process incoming MQTT messages (JSON containing UID)
   useEffect(() => {
@@ -140,9 +146,9 @@ const AutomaticAttendancePage: React.FC = () => {
   const totalStudents = students.length;
   const isFinalizeDisabled = isRecording || totalStudents === 0;
   
-  // Determine the current date/time to display in the header
-  const displayDate = format(new Date(), 'dd/MM/yyyy');
-  const displayTime = format(new Date(), 'HH:mm:ss');
+  // Determine the current date/time to display in the header (Real-time)
+  const displayDate = format(currentTime, 'dd/MM/yyyy');
+  const displayTime = format(currentTime, 'HH:mm:ss');
 
 
   return (
