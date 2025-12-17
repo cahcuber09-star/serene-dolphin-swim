@@ -25,31 +25,8 @@ const AutomaticAttendancePage: React.FC = () => {
   const [liveAttendance, setLiveAttendance] = useState<LiveAttendanceEntry[]>([]);
   const [isRecording, setIsRecording] = useState(false);
 
-  // Process incoming MQTT messages and manage live attendance state
+  // Process incoming MQTT messages
   useEffect(() => {
-    // Create a map of existing attendance for quick lookup
-    const existingMap = liveAttendance.reduce((acc, entry) => {
-        acc[entry.student.id] = entry;
-        return acc;
-    }, {} as Record<string, LiveAttendanceEntry>);
-
-    // 1. Initialization: Ensure liveAttendance reflects all students when the component mounts or students list changes, if it's currently empty.
-    if (liveAttendance.length === 0 && students.length > 0) {
-        const now = new Date();
-        const formattedDate = format(now, 'dd/MM/yyyy');
-        const formattedTime = format(now, 'HH:mm:ss');
-        
-        const initialList = students.map(student => ({
-            student,
-            status: 'Tidak Hadir' as const,
-            date: formattedDate,
-            time: formattedTime,
-        })).sort((a, b) => a.student.name.localeCompare(b.student.name));
-        
-        setLiveAttendance(initialList);
-        // Do not return here, as we might have messages waiting to be processed immediately after initialization
-    }
-    
     if (messages.length > 0) {
       const latestMessage = messages[0].message;
       const now = new Date();
@@ -60,48 +37,43 @@ const AutomaticAttendancePage: React.FC = () => {
       
       try {
         // Assuming MQTT message is a JSON string containing an array of student IDs who are present
+        // Example: ["s1", "s3"]
         presentStudentIds = JSON.parse(latestMessage);
         if (!Array.isArray(presentStudentIds)) {
             throw new Error("Message is not an array.");
         }
       } catch (e) {
         console.error(`Failed to parse MQTT message from ${MQTT_TOPIC}:`, e);
+        // If parsing fails, we assume no valid data was received for this cycle
         presentStudentIds = []; 
       }
 
-      const presentIdSet = new Set(presentStudentIds);
+      // Create a map of all students, defaulting to 'Tidak Hadir'
       const newLiveAttendanceMap: Record<string, LiveAttendanceEntry> = {};
       
-      // Iterate over all known students
       students.forEach(student => {
-        const isPresentInMessage = presentIdSet.has(student.id);
-        const existingEntry = existingMap[student.id];
+        const isPresent = presentStudentIds.includes(student.id);
         
-        if (isPresentInMessage) {
-            // Case 1: Student is present in the latest message.
-            if (existingEntry && existingEntry.status === 'Hadir') {
-                // If already marked Hadir, keep the original recorded time/date (first entry time).
-                newLiveAttendanceMap[student.id] = existingEntry;
-            } else {
-                // First time detected as Hadir in this session. Record current time.
-                newLiveAttendanceMap[student.id] = {
-                    student,
-                    status: 'Hadir',
-                    date: formattedDate,
-                    time: formattedTime,
-                };
-            }
+        // If student was already present in the current live session, keep their existing entry
+        const existingEntry = liveAttendance.find(e => e.student.id === student.id);
+        
+        if (isPresent) {
+            // If present, record the current time/date
+            newLiveAttendanceMap[student.id] = {
+                student,
+                status: 'Hadir',
+                date: formattedDate,
+                time: formattedTime,
+            };
         } else if (existingEntry && existingEntry.status === 'Hadir') {
-            // Case 2: Student is NOT in the latest message, but was previously marked Hadir.
-            // We keep the 'Hadir' status and the recorded time for the duration of the session.
+            // If they were previously marked Hadir in this session, keep that status/time
             newLiveAttendanceMap[student.id] = existingEntry;
         } else {
-            // Case 3: Student is not present in the message and was never marked Hadir (or was 'Tidak Hadir').
-            // Default to 'Tidak Hadir' using the current time/date for display consistency.
+            // Otherwise, mark as Tidak Hadir (or keep existing 'Tidak Hadir' status)
             newLiveAttendanceMap[student.id] = {
                 student,
                 status: 'Tidak Hadir',
-                date: formattedDate, 
+                date: formattedDate, // Use current date/time for non-present status too, for consistency
                 time: formattedTime,
             };
         }
@@ -114,7 +86,7 @@ const AutomaticAttendancePage: React.FC = () => {
 
   const handleFinalizeAttendance = () => {
     if (liveAttendance.length === 0) {
-      showError("No live attendance data to record. Please wait for MQTT data or ensure students are loaded.");
+      showError("No live attendance data to record. Please wait for MQTT data.");
       return;
     }
     
@@ -122,7 +94,7 @@ const AutomaticAttendancePage: React.FC = () => {
     
     const entries: FinalAttendanceEntry[] = liveAttendance.map(entry => ({
       name: entry.student.name,
-      // If status is 'Tidak Hadir', record as 'Alpha' in the final record.
+      // Use the status recorded in the liveAttendance state
       status: entry.status === 'Hadir' ? 'Hadir' : 'Alpha', 
       date: entry.date,
       time: entry.time,
