@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Users, CalendarCheck, FileText } from 'lucide-react';
 import { useStudents } from '@/contexts/StudentContext';
 import { useAttendance } from '@/contexts/AttendanceContext';
+import AttendanceSummaryChart from '@/components/AttendanceSummaryChart';
 
 const HomePage: React.FC = () => {
   const { students } = useStudents();
@@ -57,15 +58,8 @@ const HomePage: React.FC = () => {
         </Card>
       </div>
       
-      {/* Placeholder for charts or recent activity */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Aktivitas Terbaru</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-muted-foreground">Lihat laporan rekapitulasi untuk detail lebih lanjut.</p>
-        </CardContent>
-      </Card>
+      {/* Attendance Summary Chart */}
+      <AttendanceSummaryChart />
     </div>
   );
 };
