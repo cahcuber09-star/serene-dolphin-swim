@@ -15,7 +15,9 @@ import NotFound from "./pages/NotFound";
 // New Pages
 import HomePage from "./pages/HomePage";
 import StudentManagementPage from "./pages/StudentManagementPage";
-import DailyAttendancePage from "./pages/DailyAttendancePage";
+import AttendancePage from "./pages/AttendancePage"; // Main Attendance Page (Mode Selection)
+import ManualAttendancePage from "./pages/ManualAttendancePage"; // Renamed from DailyAttendancePage
+import AutomaticAttendancePage from "./pages/AutomaticAttendancePage"; // New Automatic Mode
 import RecapReportPage from "./pages/RecapReportPage";
 import StudentHistoryPage from "./pages/StudentHistoryPage";
 
@@ -40,7 +42,14 @@ const App = () => (
                   <Route element={<Layout />}>
                     <Route path="/dashboard" element={<HomePage />} />
                     <Route path="/dashboard/students" element={<StudentManagementPage />} />
-                    <Route path="/dashboard/attendance" element={<DailyAttendancePage />} />
+                    
+                    {/* Nested Attendance Routes */}
+                    <Route path="/dashboard/attendance" element={<AttendancePage />}>
+                      <Route index element={<AttendancePage />} /> {/* Render mode selection when path is exactly /dashboard/attendance */}
+                      <Route path="manual" element={<ManualAttendancePage />} />
+                      <Route path="automatic" element={<AutomaticAttendancePage />} />
+                    </Route>
+                    
                     <Route path="/dashboard/recap" element={<RecapReportPage />} />
                     <Route path="/dashboard/history" element={<StudentHistoryPage />} />
                   </Route>

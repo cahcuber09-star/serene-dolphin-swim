@@ -95,8 +95,27 @@ const StudentManagementPage: React.FC = () => {
   };
   
   const handleExport = () => {
-    showSuccess("Exporting student data...");
-    // Placeholder for actual export logic
+    // Mocking Excel download functionality
+    const dataToExport = filteredStudents.map(s => ({
+      'NO': students.indexOf(s) + 1,
+      'NAMA LENGKAP': s.name,
+      'NIM': s.nim,
+      'KELAS': s.class,
+    }));
+    
+    // Convert JSON to CSV format for simple download simulation
+    const header = Object.keys(dataToExport[0]).join(',');
+    const rows = dataToExport.map(row => Object.values(row).join(','));
+    const csvContent = [header, ...rows].join('\n');
+    
+    const mockDownloadLink = document.createElement('a');
+    mockDownloadLink.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csvContent);
+    mockDownloadLink.download = 'data_mahasiswa.csv'; 
+    document.body.appendChild(mockDownloadLink);
+    mockDownloadLink.click();
+    document.body.removeChild(mockDownloadLink);
+    
+    showSuccess("Data mahasiswa berhasil diunduh sebagai file Excel.");
   };
 
   return (

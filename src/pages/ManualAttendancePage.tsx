@@ -12,6 +12,7 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Textarea } from '@/components/ui/textarea';
 import { showSuccess, showError } from '@/utils/toast';
+import { useMqtt } from '@/hooks/useMqtt'; // Import MQTT hook
 
 type AttendanceStatus = 'Hadir' | 'Sakit' | 'Izin' | 'Alpha';
 
@@ -22,11 +23,14 @@ interface AttendanceState {
 
 const ATTENDANCE_OPTIONS: AttendanceStatus[] = ['Hadir', 'Sakit', 'Izin', 'Alpha'];
 
-const DailyAttendancePage: React.FC = () => {
+const ManualAttendancePage: React.FC = () => {
   const { students } = useStudents();
   const { addRecord } = useAttendance();
   const [date, setDate] = useState<Date | undefined>(new Date());
   const [attendanceData, setAttendanceData] = useState<Record<string, AttendanceState>>({});
+  
+  // MQTT for Manual Mode (Topic 1/2) - Used for publishing/monitoring if needed
+  const { isConnected, publish, messages } = useMqtt("1/2"); 
 
   // Initialize attendance data when students load or date changes
   React.useEffect(() => {
@@ -75,12 +79,20 @@ const DailyAttendancePage: React.FC = () => {
     
     addRecord('Manual', entries);
     
+    // Optionally publish the manual record to 1/2
+    if (isConnected) {
+        publish("1/2", JSON.stringify({ date: formattedDate, entries }));
+    }
+    
     showSuccess(`Absensi tanggal ${formattedDate} berhasil disimpan.`);
   };
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold">Pengisian Absensi Harian</h2>
+      <h2 className="text-2xl font-bold">Pengisian Absensi Manual (Topic 1/2)</h2>
+      <p className={cn("text-sm", isConnected ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400")}>
+        MQTT Status: {isConnected ? 'Connected' : 'Disconnected'} to broker.hivemq.com:8000
+      </p>
 
       <Card>
         <CardHeader className="flex flex-row flex-wrap items-center justify-between space-y-2 pb-4">
@@ -167,8 +179,22 @@ const DailyAttendancePage: React.FC = () => {
           </div>
         </CardContent>
       </Card>
+      
+      {/* Display last received MQTT message from 1/2 */}
+      {messages.length > 0 && (
+        <Card className="mt-4">
+          <CardHeader>
+            <CardTitle className="text-sm font-medium">Last MQTT Message (1/2)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <pre className="text-xs bg-muted p-2 rounded overflow-x-auto">
+              {messages[0].message}
+            </pre>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };
 
-export default DailyAttendancePage;
+export default ManualAttendancePage;
