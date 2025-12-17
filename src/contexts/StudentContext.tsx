@@ -6,6 +6,7 @@ export interface Student {
   name: string;
   nim: string;
   class: string;
+  rfidUid: string; // New field for RFID identification
 }
 
 // Initial student list is now empty as requested

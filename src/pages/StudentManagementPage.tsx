@@ -8,7 +8,7 @@ import { Plus, Search, Filter, Edit, Trash, Download } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { showSuccess } from '@/utils/toast';
+import { showSuccess, showError } from '@/utils/toast';
 
 // Helper component for Add/Edit Student Form
 interface StudentFormProps {
@@ -20,11 +20,16 @@ interface StudentFormProps {
 const StudentForm: React.FC<StudentFormProps> = ({ initialData, onSubmit, onClose }) => {
   const [name, setName] = useState(initialData?.name || '');
   const [nim, setNim] = useState(initialData?.nim || '');
+  const [rfidUid, setRfidUid] = useState(initialData?.rfidUid || ''); // New state for RFID UID
   const [studentClass, setStudentClass] = useState(initialData?.class || 'A');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit({ id: initialData?.id, name, nim, class: studentClass });
+    if (!rfidUid) {
+        alert("RFID UID harus diisi.");
+        return;
+    }
+    onSubmit({ id: initialData?.id, name, nim, class: studentClass, rfidUid });
     onClose();
   };
 
@@ -39,6 +44,10 @@ const StudentForm: React.FC<StudentFormProps> = ({ initialData, onSubmit, onClos
         <Input id="nim" value={nim} onChange={(e) => setNim(e.target.value)} required className="col-span-3" />
       </div>
       <div className="grid grid-cols-4 items-center gap-4">
+        <Label htmlFor="rfidUid" className="text-right">RFID UID</Label>
+        <Input id="rfidUid" value={rfidUid} onChange={(e) => setRfidUid(e.target.value)} required className="col-span-3" placeholder="Contoh: 04:5F:42:5A:A4:6F:80" />
+      </div>
+      <div className="grid grid-cols-4 items-center gap-4">
         <Label htmlFor="class" className="text-right">Kelas</Label>
         <Select value={studentClass} onValueChange={setStudentClass}>
           <SelectTrigger className="col-span-3">
@@ -46,7 +55,7 @@ const StudentForm: React.FC<StudentFormProps> = ({ initialData, onSubmit, onClos
           </SelectTrigger>
           <SelectContent>
             {['A', 'B', 'C', 'D'].map(c => (
-              <SelectItem key={c} value={c}>{c}</SelectItem>
+              <SelectItem key={c} value={c}>Kelas {c}</SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -69,12 +78,19 @@ const StudentManagementPage: React.FC = () => {
 
   const filteredStudents = students.filter(student => {
     const matchesSearch = student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          student.nim.includes(searchTerm);
+                          student.nim.includes(searchTerm) ||
+                          student.rfidUid.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesClass = filterClass === 'All' || student.class === filterClass;
     return matchesSearch && matchesClass;
   });
 
   const handleAddOrUpdate = (data: Omit<Student, 'id'> & { id?: string }) => {
+    // Ensure rfidUid is present before proceeding (already checked in form, but good practice)
+    if (!data.rfidUid) {
+        showError("RFID UID harus diisi.");
+        return;
+    }
+    
     if (data.id) {
       updateStudent(data as Student);
     } else {
@@ -100,6 +116,7 @@ const StudentManagementPage: React.FC = () => {
       'NO': students.indexOf(s) + 1,
       'NAMA LENGKAP': s.name,
       'NIM': s.nim,
+      'RFID UID': s.rfidUid, // Include RFID UID in export
       'KELAS': s.class,
     }));
     
@@ -134,7 +151,7 @@ const StudentManagementPage: React.FC = () => {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Cari Nama atau NIM..."
+                placeholder="Cari Nama, NIM, atau RFID UID..."
                 className="pl-10"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -166,6 +183,7 @@ const StudentManagementPage: React.FC = () => {
                   <TableHead className="w-[50px]">NO</TableHead>
                   <TableHead>NAMA LENGKAP</TableHead>
                   <TableHead>NIM</TableHead>
+                  <TableHead>RFID UID</TableHead> {/* New column */}
                   <TableHead>KELAS</TableHead>
                   <TableHead className="text-right">Aksi</TableHead>
                 </TableRow>
@@ -173,7 +191,7 @@ const StudentManagementPage: React.FC = () => {
               <TableBody>
                 {filteredStudents.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
+                    <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
                       Tidak ada data mahasiswa yang ditemukan.
                     </TableCell>
                   </TableRow>
@@ -183,6 +201,7 @@ const StudentManagementPage: React.FC = () => {
                       <TableCell>{index + 1}</TableCell>
                       <TableCell className="font-medium">{student.name}</TableCell>
                       <TableCell>{student.nim}</TableCell>
+                      <TableCell className="text-xs font-mono">{student.rfidUid}</TableCell> {/* Display RFID UID */}
                       <TableCell>{student.class}</TableCell>
                       <TableCell className="text-right space-x-2">
                         <Button variant="outline" size="sm" onClick={() => handleEdit(student)}>

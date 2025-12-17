@@ -37,20 +37,35 @@ const AutomaticAttendancePage: React.FC = () => {
     setLiveAttendance(initialData.sort((a, b) => a.student.name.localeCompare(b.student.name)));
   }, [students]);
 
-  // 2. Process incoming MQTT messages (single NIM/ID per message)
+  // 2. Process incoming MQTT messages (JSON containing UID)
   useEffect(() => {
     if (messages.length > 0) {
       const latestMessage = messages[0].message.trim();
+      let scannedUid: string | null = null;
       
-      // Expecting the message to be a single NIM string (e.g., "190101001")
-      const scannedNIM = latestMessage; 
+      try {
+        // Attempt to parse the message as JSON
+        const data = JSON.parse(latestMessage);
+        // We expect the UID field to be named 'uid' based on the user's example
+        if (data && data.uid) {
+            scannedUid = data.uid;
+        }
+      } catch (e) {
+        // If parsing fails, assume the message itself might be the UID string (fallback)
+        // However, based on the user's error, we prioritize JSON parsing.
+        console.warn("MQTT message is not valid JSON or missing 'uid' field:", latestMessage);
+        showError(`Format pesan MQTT tidak valid: ${latestMessage}`);
+        return;
+      }
       
+      if (!scannedUid) return;
+
       const now = new Date();
       const formattedDate = format(now, 'dd/MM/yyyy');
       const formattedTime = format(now, 'HH:mm:ss');
       
-      // Find the student matching the scanned NIM
-      const studentScanned = students.find(s => s.nim === scannedNIM);
+      // Find the student matching the scanned RFID UID
+      const studentScanned = students.find(s => s.rfidUid === scannedUid);
 
       if (studentScanned) {
         setLiveAttendance(prevLive => {
@@ -73,19 +88,22 @@ const AutomaticAttendancePage: React.FC = () => {
             time: formattedTime,
           };
           
-          liveMap.set(studentScanned.id, updatedEntry);
+          // If the student was not in the liveAttendance list (e.g., if students list was updated after initialization), add them.
+          if (!existingEntry) {
+              liveMap.set(studentScanned.id, updatedEntry);
+          } else {
+              liveMap.set(studentScanned.id, updatedEntry);
+          }
           
           // Convert map back to array and sort
           const newLiveAttendance = Array.from(liveMap.values()).sort((a, b) => a.student.name.localeCompare(b.student.name));
           
-          showSuccess(`${studentScanned.name} (${scannedNIM}) berhasil tercatat hadir.`);
+          showSuccess(`${studentScanned.name} berhasil tercatat hadir.`);
           return newLiveAttendance;
         });
       } else {
-        // Only show error if the message is non-empty and didn't match a student
-        if (scannedNIM) {
-            showError(`NIM/ID ${scannedNIM} tidak ditemukan dalam daftar mahasiswa.`);
-        }
+        // Only show error if the UID didn't match a student
+        showError(`RFID UID ${scannedUid} tidak ditemukan dalam daftar mahasiswa.`);
       }
     }
   }, [messages, students]); 
@@ -157,7 +175,7 @@ const AutomaticAttendancePage: React.FC = () => {
           </span>
         </p>
         <p className="text-sm font-medium text-muted-foreground">
-          Topik: {MQTT_TOPIC} (Menunggu NIM/ID Mahasiswa)
+          Topik: {MQTT_TOPIC} (Menunggu pesan JSON dengan field 'uid')
         </p>
       </div>
 
