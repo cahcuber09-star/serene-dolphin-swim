@@ -25,6 +25,17 @@ interface RecapResult {
 // Define the specific keys that hold numeric counts
 type AttendanceCountKey = 'Hadir' | 'Sakit' | 'Izin' | 'Alpha';
 
+// Helper function for robust CSV escaping
+const escapeCsvValue = (value: any): string => {
+    const str = String(value);
+    // If the string contains a comma, double quote, or newline, wrap it in double quotes.
+    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+        // Escape internal double quotes by doubling them
+        return `"${str.replace(/"/g, '""')}"`;
+    }
+    return str;
+};
+
 const RecapReportPage: React.FC = () => {
   const { students } = useStudents();
   const { history } = useAttendance();
@@ -105,12 +116,15 @@ const RecapReportPage: React.FC = () => {
         'ALPHA': data.Alpha,
     }));
     
-    // Convert JSON to CSV format
-    const header = Object.keys(dataToExport[0]).join(',');
-    const rows = dataToExport.map(row => Object.values(row).join(','));
+    // Convert JSON to CSV format using robust escaping
+    const header = Object.keys(dataToExport[0]).map(escapeCsvValue).join(',');
+    const rows = dataToExport.map(row => 
+        Object.values(row).map(escapeCsvValue).join(',')
+    );
     const csvContent = [header, ...rows].join('\n');
     
     const mockDownloadLink = document.createElement('a');
+    // Use 'text/csv' MIME type
     mockDownloadLink.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csvContent);
     mockDownloadLink.download = `Laporan_Absensi_${format(startDate!, 'yyyyMMdd')}_to_${format(endDate!, 'yyyyMMdd')}.csv`; 
     document.body.appendChild(mockDownloadLink);

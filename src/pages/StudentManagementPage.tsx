@@ -10,6 +10,17 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Label } from '@/components/ui/label';
 import { showSuccess, showError } from '@/utils/toast';
 
+// Helper function for robust CSV escaping
+const escapeCsvValue = (value: any): string => {
+    const str = String(value);
+    // If the string contains a comma, double quote, or newline, wrap it in double quotes.
+    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+        // Escape internal double quotes by doubling them
+        return `"${str.replace(/"/g, '""')}"`;
+    }
+    return str;
+};
+
 // Helper component for Add/Edit Student Form
 interface StudentFormProps {
   initialData?: Student;
@@ -111,18 +122,24 @@ const StudentManagementPage: React.FC = () => {
   };
   
   const handleExport = () => {
-    // Mocking Excel download functionality
-    const dataToExport = filteredStudents.map(s => ({
-      'NO': students.indexOf(s) + 1,
+    const dataToExport = filteredStudents.map((s, index) => ({
+      'NO': index + 1, // Use index + 1 from filtered list for NO
       'NAMA LENGKAP': s.name,
       'NIM': s.nim,
-      'RFID UID': s.rfidUid, // Include RFID UID in export
+      'RFID UID': s.rfidUid, 
       'KELAS': s.class,
     }));
     
-    // Convert JSON to CSV format for simple download simulation
-    const header = Object.keys(dataToExport[0]).join(',');
-    const rows = dataToExport.map(row => Object.values(row).join(','));
+    if (dataToExport.length === 0) {
+        showError("Tidak ada data mahasiswa untuk diekspor.");
+        return;
+    }
+    
+    // Convert JSON to CSV format using robust escaping
+    const header = Object.keys(dataToExport[0]).map(escapeCsvValue).join(',');
+    const rows = dataToExport.map(row => 
+        Object.values(row).map(escapeCsvValue).join(',')
+    );
     const csvContent = [header, ...rows].join('\n');
     
     const mockDownloadLink = document.createElement('a');
